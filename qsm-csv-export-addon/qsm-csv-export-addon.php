@@ -239,6 +239,14 @@ function show_current_screen_id() {
 //     exit;
 // }
 
+function normalize_data($data) {
+    if (is_string($data)) {
+        $data = str_replace(["\r", "\n"], ' ', $data);  // Replace line breaks with spaces
+        $data = trim($data);  // Trim any leading or trailing spaces
+    }
+    return $data;
+}
+
 function process_array_data($data) {
     if (is_array($data)) {
         return json_encode($data);  // Encode arrays to JSON for safe CSV output
@@ -246,7 +254,13 @@ function process_array_data($data) {
     return $data;  // Return the original data if it's not an array
 }
 
-
+function escape_special_characters($data) {
+    if (is_string($data)) {
+        // Ensure double quotes within fields are escaped properly
+        $data = str_replace('"', '""', $data);
+    }
+    return $data;
+}
 
 function export_quiz_results_to_csv() {
     global $wpdb, $mlwQuizMasterNext;
@@ -292,34 +306,40 @@ function export_quiz_results_to_csv() {
     ));
 
  
-   // if (is_array($results_array['question_answers_array'])) {
-   //      $question_answers_summary = [];
-   //      foreach ($results_array['question_answers_array'] as $question_id => $answer) {
-   //          $question_answers_summary[] = "Q{$question_id}: " . process_array_data($answer);
+
+    // $questions     = QSM_Questions::load_questions_by_pages( $mlw_quiz_array['quiz_id'] );
+    // $qmn_questions = array();
+    // foreach ( $questions as $question ) {
+    //     $qmn_questions[ $question['question_id'] ] = $question['question_answer_info'];
+    // }
+
+   //  // Cycles through each answer in the responses.
+   //  $total_question_cnt = count( $mlw_quiz_array['question_answers_array'] );
+   //  $qsm_question_cnt   = 1;
+   //  foreach ( $mlw_quiz_array['question_answers_array'] as $answer ) {
+   //      if ( ! empty( $hidden_questions ) && is_array( $hidden_questions ) && in_array( $answer['id'], $hidden_questions, true ) ) {
+   //          continue;
    //      }
-   //      $question_answers_summary = implode(' | ', $question_answers_summary); // Separating each Q&A pair with a pipe symbol
-   //  } else {
-   //      $question_answers_summary = $results_array['question_answers_array'];
+   //      $display .= qsm_questions_answers_shortcode_to_text( $mlw_quiz_array, $qmn_question_answer_template, $questions, $qmn_questions, $answer, $qsm_question_cnt, $total_question_cnt );
+   //      $qsm_question_cnt++;
    //  }
-   //  $results_array['question_answers_array'] = $question_answers_summary;
-
-    // Use the function to replace %QUESTIONS_ANSWERS% with actual data
-    $results_array['question_answers_array'] = mlw_qmn_variable_question_answers("%QUESTIONS_ANSWERS%", $results_array);
 
 
+   // // Handling question_answers_array
+   //  $question_answers = isset($results[1]) ? $results[1] : array();
+   //  $question_columns = [];
+   //  foreach ($question_answers as $question_id => $answer_data) {
+   //      $question_columns['question_' . $question_id] = isset($answer_data['question']) ? $answer_data['question'] : 'Unknown Question';
+   //      $question_columns['answer_' . $question_id] = isset($answer_data['answer']) ? implode(', ', (array)$answer_data['answer']) : 'No Answer';
+   //  }
 
-
+    // // Merging the question columns into the main results array
+    // $results_array = array_merge($results_array, $question_columns);
 
     // Convert arrays and complex data structures to strings (e.g., JSON)
     foreach ($results_array as $key => $value) {
-        $results_array[$key] = process_array_data($value);
+        $results_array[$key] = normalize_data(process_array_data($value));
     }
-
-    // // Convert question_answers_array to a string
-    // $results_array['question_answers_array'] = is_array($results_array['question_answers_array'])
-    //     ? json_encode($results_array['question_answers_array'])
-    //     : $results_array['question_answers_array'];
-
 
     // Set CSV headers
     header('Content-Type: text/csv');
@@ -333,6 +353,12 @@ function export_quiz_results_to_csv() {
 
     // Output data row
     fputcsv($output, array_values($results_array));
+
+    // // Output header row with explicit delimiter and enclosure
+    // fputcsv($output, array_keys($results_array), ',', '"');
+
+    // // Output data row with explicit delimiter and enclosure
+    // fputcsv($output, array_values($results_array), ',', '"');
 
     fclose($output);
     exit;
